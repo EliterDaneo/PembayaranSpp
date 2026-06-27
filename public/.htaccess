@@ -22,10 +22,9 @@
   </FilesMatch>
 </IfModule>
 
-# CORS aman untuk API yang dipanggil dari domain frontend yang sama.
-# Ganti your-domain.com dengan domain produksi Anda.
+# CORS aman untuk domain frontend produksi.
 <IfModule mod_setenvif.c>
-  SetEnvIf Origin "^https://(your-domain\.com|www\.your-domain\.com)$" CORS_ALLOW_ORIGIN=$0
+  SetEnvIf Origin "^https://(pembayaran\.smkmutuwsb\.com|www\.pembayaran\.smkmutuwsb\.com)$" CORS_ALLOW_ORIGIN=$0
   Header always set Access-Control-Allow-Origin "%{CORS_ALLOW_ORIGIN}e" env=CORS_ALLOW_ORIGIN
   Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS" env=CORS_ALLOW_ORIGIN
   Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" env=CORS_ALLOW_ORIGIN

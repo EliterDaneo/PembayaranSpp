@@ -67,10 +67,10 @@
             </header>
 
             <!-- Main Grid -->
-            <div class="flex flex-col lg:flex-row min-h-[calc(100vh-64px)]">
+            <div class="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
                 <!-- Left Panel: Student Queue -->
                 <div
-                    class="w-full lg:w-80 xl:w-96 bg-slate-800/30 border-b lg:border-b-0 lg:border-r border-slate-700/50 flex flex-col">
+                    class="w-full lg:w-80 xl:w-96 bg-slate-800/30 border-b lg:border-b-0 lg:border-r border-slate-700/50 flex flex-col h-full overflow-hidden">
                     <div class="p-4 border-b border-slate-700/50">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-white font-semibold text-sm">Antrian Siswa</h3>
@@ -158,7 +158,7 @@
                 </div>
 
                 <!-- Right Panel: Detail & Payment -->
-                <div class="flex-1 overflow-y-auto">
+                <div class="flex-1 overflow-y-auto h-full">
                     <div v-if="!selected" class="flex flex-col items-center justify-center h-full p-8 text-center">
                         <div class="text-6xl mb-4">👈</div>
                         <p class="text-slate-400 text-lg font-medium">Pilih siswa dari antrian</p>
@@ -342,12 +342,22 @@
                                 </div>
                             </div>
 
-                            <!-- Transfer Details -->
-                            <div v-if="metodeBayar === 'transfer'" class="mb-5 space-y-3">
+                            <!-- Cicil Details -->
+                            <div v-if="metodeBayar === 'cicil'" class="mb-5 space-y-3">
                                 <div>
-                                    <label class="block text-slate-400 text-xs font-medium mb-1">Nomor Referensi</label>
-                                    <input v-model="buktiTransfer" type="text" placeholder="Contoh: REF123456789"
-                                        class="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono" />
+                                    <label class="block text-slate-400 text-xs font-medium mb-1">
+                                        Nominal Cicilan Sekarang
+                                    </label>
+                                    <input v-model.number="nominalCicil" type="number" + :max="totalPembayaran" min="0"
+                                        placeholder="Masukkan jumlah yang dibayar..."
+                                        class="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono" />
+                                </div>
+                                <div class="flex justify-between text-xs px-1">
+                                    <span class="text-slate-400">Sisa tagihan setelah cicilan:</span>
+                                    <span :class="sisaCicil < 0 ? 'text-red-400' : 'text-amber-400'"
+                                        class="font-mono font-semibold">
+                                        Rp {{ formatRupiah(Math.max(0, sisaCicil)) }}
+                                    </span>
                                 </div>
                             </div>
 
@@ -539,9 +549,11 @@ const waktu = ref('')
 // Payment Methods
 const metodePembayaran = [
     { val: 'cash', label: 'Tunai', icon: '💵' },
-    { val: 'transfer', label: 'Transfer', icon: '🏦' },
-    { val: 'qris', label: 'QRIS', icon: '📱' }
+    { val: 'cicil', label: 'Cicil', icon: '📅' }
 ]
+
+const nominalCicil = ref(0)
+const sisaCicil = computed(() => totalPembayaran.value - Number(nominalCicil.value || 0))
 
 // Helper function untuk konversi aman ke string
 function toSafeString(value) {
@@ -629,7 +641,7 @@ function tambahAntrian(siswa) {
     if (existingIndex > -1) {
         antrian.value[existingIndex] = { ...antrian.value[existingIndex], ...siswa }
     } else {
-        antrian.value.unshift(siswa)
+        antrian.value.push(siswa)
     }
     showToast(`📥 ${siswa.nama} masuk antrian`, 'info')
 }
@@ -638,7 +650,7 @@ function tambahAntrian(siswa) {
 function setRfidMode(status) {
     // Props sudah reactive, tidak perlu diset manual
     // Fungsi ini disediakan untuk dipanggil dari parent jika diperlukan
-    console.log('RFID mode:', status)
+    // console.log('RFID mode:', status)
 }
 
 // Pilih siswa dari antrian
@@ -705,7 +717,7 @@ function lockScreen() {
 function resetPaymentState() {
     dipilihTagihan.value = []
     metodeBayar.value = 'cash'
-    buktiTransfer.value = ''
+    nominalCicil.value = 0
     konfirmasiSelesai.value = false
     passwordKonfirmasi.value = ''
     errorKonfirmasi.value = ''
@@ -733,13 +745,22 @@ function konfirmasiOtomatis() {
 async function prosesPembayaran() {
     if (isProcessing.value) return
 
+    if (metodeBayar.value === 'cicil' && (!nominalCicil.value || nominalCicil.value <= 0)) {
+        showToast('⚠️ Masukkan nominal cicilan terlebih dahulu', 'error')
+        return
+    }
+    if (metodeBayar.value === 'cicil' && nominalCicil.value > totalPembayaran.value) {
+        showToast('⚠️ Nominal cicilan melebihi total tagihan', 'error')
+        return
+    }
+
     isProcessing.value = true
     try {
         const payload = {
             siswa_id: selected.value.id,
             tagihan_ids: dipilihTagihan.value,
             metode_pembayaran: metodeBayar.value,
-            bukti_transfer: buktiTransfer.value || null,
+            nominal_cicil: metodeBayar.value === 'cicil' ? Number(nominalCicil.value) : null,
             tanggal_bayar: new Date().toISOString().split('T')[0]
         }
 
